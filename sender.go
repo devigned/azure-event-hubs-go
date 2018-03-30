@@ -29,6 +29,8 @@ import (
 
 	"github.com/Azure/azure-amqp-common-go"
 	"github.com/Azure/azure-amqp-common-go/uuid"
+	"github.com/opentracing/opentracing-go"
+	log2 "github.com/opentracing/opentracing-go/log"
 	log "github.com/sirupsen/logrus"
 	"pack.ag/amqp"
 )
@@ -85,6 +87,9 @@ func (s *sender) Close() error {
 //
 // This will retry sending the message if the server responds with a busy error.
 func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sender_send")
+	defer span.Finish()
+
 	s.prepareMessage(msg)
 
 	for _, opt := range opts {
@@ -110,6 +115,9 @@ func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption
 		times = max(times, 1) // give at least one chance at sending
 	}
 	_, err := common.Retry(times, delay, func() (interface{}, error) {
+		sp := opentracing.StartSpan("retry", opentracing.ChildOf(span.Context()))
+		defer sp.Finish()
+
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -119,7 +127,7 @@ func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption
 			err := s.sender.Send(innerCtx, msg)
 
 			if err != nil {
-				log.Warnln("recovering...", err)
+				sp.LogFields(log2.String("event", "warn"), log2.String("message", "recovering..."))
 				recoverErr := s.Recover(ctx)
 				if recoverErr != nil {
 					log.Errorln(recoverErr)
@@ -128,7 +136,7 @@ func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption
 
 			if amqpErr, ok := err.(*amqp.Error); ok {
 				if amqpErr.Condition == "com.microsoft:server-busy" {
-					log.Warnln("retrying... ", amqpErr)
+					sp.LogFields(log2.String("event", "warn"), log2.String("message", "retrying..."))
 					return nil, common.Retryable(amqpErr.Condition)
 				}
 			}

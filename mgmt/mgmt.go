@@ -32,6 +32,7 @@ import (
 	"github.com/Azure/azure-amqp-common-go/rpc"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/mitchellh/mapstructure"
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"pack.ag/amqp"
 )
@@ -90,6 +91,9 @@ func NewClient(namespace, hubName string, provider auth.TokenProvider, env azure
 
 // GetHubRuntimeInformation requests runtime information for an Event Hub
 func (c *Client) GetHubRuntimeInformation(ctx context.Context, conn *amqp.Client) (*HubRuntimeInformation, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "mgmt_get_runtime_information")
+	defer span.Finish()
+
 	rpcLink, err := rpc.NewLink(conn, address)
 	if err != nil {
 		return nil, err

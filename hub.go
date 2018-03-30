@@ -35,6 +35,7 @@ import (
 	"github.com/Azure/azure-amqp-common-go/sas"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -209,6 +210,8 @@ func NewHubFromEnvironment(opts ...HubOption) (*Hub, error) {
 
 // GetRuntimeInformation fetches runtime information from the Event Hub management node
 func (h *Hub) GetRuntimeInformation(ctx context.Context) (*mgmt.HubRuntimeInformation, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hub_get_runtime_information")
+	defer span.Finish()
 	client := mgmt.NewClient(h.namespace.name, h.name, h.namespace.tokenProvider, h.namespace.environment)
 	conn, err := h.namespace.newConnection()
 	if err != nil {
@@ -270,6 +273,8 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 
 // Send sends an event to the Event Hub
 func (h *Hub) Send(ctx context.Context, event *Event, opts ...SendOption) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hub_send")
+	defer span.Finish()
 	sender, err := h.getSender(ctx)
 	if err != nil {
 		return err
@@ -341,6 +346,8 @@ func (h *Hub) appendAgent(userAgent string) error {
 func (h *Hub) getSender(ctx context.Context) (*sender, error) {
 	h.senderMu.Lock()
 	defer h.senderMu.Unlock()
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hub_get_sender")
+	defer span.Finish()
 
 	if h.sender == nil {
 		s, err := h.newSender(ctx)
