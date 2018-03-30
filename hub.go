@@ -33,11 +33,11 @@ import (
 	"github.com/Azure/azure-amqp-common-go/auth"
 	"github.com/Azure/azure-amqp-common-go/persist"
 	"github.com/Azure/azure-amqp-common-go/sas"
+	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -139,15 +139,12 @@ func NewHubWithNamespaceNameAndEnvironment(namespace, name string, opts ...HubOp
 
 	if aadErr != nil && sasErr != nil {
 		// both failed
-		log.Debug("both token providers failed")
 		return nil, errors.Errorf("neither Azure Active Directory nor SAS token provider could be built - AAD error: %v, SAS error: %v", aadErr, sasErr)
 	}
 
 	if aadProvider != nil {
-		log.Debug("using AAD provider")
 		provider = aadProvider
 	} else {
-		log.Debug("using SAS provider")
 		provider = sasProvider
 	}
 
@@ -251,6 +248,12 @@ func (h *Hub) Close() error {
 
 // Receive subscribes for messages sent to the provided entityPath.
 func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, opts ...ReceiveOption) (*ListenerHandle, error) {
+	span, ctx, err := h.startSpanFromContext(ctx, "send")
+	if err != nil {
+		return nil, err
+	}
+	defer span.Finish()
+
 	h.receiverMu.Lock()
 	defer h.receiverMu.Unlock()
 
@@ -261,7 +264,7 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 
 	if r, ok := h.receivers[receiver.getIdentifier()]; ok {
 		if err := r.Close(); err != nil {
-			log.Error(err)
+			log.For(ctx).Error(err.Error())
 		}
 	}
 
@@ -273,8 +276,12 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 
 // Send sends an event to the Event Hub
 func (h *Hub) Send(ctx context.Context, event *Event, opts ...SendOption) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hub_send")
+	span, ctx, err := h.startSpanFromContext(ctx, "send")
+	if err != nil {
+		return err
+	}
 	defer span.Finish()
+
 	sender, err := h.getSender(ctx)
 	if err != nil {
 		return err
@@ -346,16 +353,20 @@ func (h *Hub) appendAgent(userAgent string) error {
 func (h *Hub) getSender(ctx context.Context) (*sender, error) {
 	h.senderMu.Lock()
 	defer h.senderMu.Unlock()
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hub_get_sender")
+
+	span, ctx, err := h.startSpanFromContext(ctx, "get_sender")
+	if err != nil {
+		return nil, err
+	}
 	defer span.Finish()
 
 	if h.sender == nil {
 		s, err := h.newSender(ctx)
 		if err != nil {
+			log.For(ctx).Error(err.Error())
 			return nil, err
 		}
 		h.sender = s
 	}
-	// add recover logic here
 	return h.sender, nil
 }

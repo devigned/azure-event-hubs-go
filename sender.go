@@ -29,9 +29,8 @@ import (
 
 	"github.com/Azure/azure-amqp-common-go"
 	"github.com/Azure/azure-amqp-common-go/uuid"
+	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/opentracing/opentracing-go"
-	log2 "github.com/opentracing/opentracing-go/log"
-	log "github.com/sirupsen/logrus"
 	"pack.ag/amqp"
 )
 
@@ -52,11 +51,14 @@ type (
 
 // newSender creates a new Service Bus message sender given an AMQP client and entity path
 func (h *Hub) newSender(ctx context.Context) (*sender, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "newSender")
+	defer span.Finish()
+
 	s := &sender{
 		hub:         h,
 		partitionID: h.senderPartitionID,
 	}
-	log.Debugf("creating a new sender for entity path %s", s.getAddress())
+	log.For(ctx).Debug(fmt.Sprintf("creating a new sender for entity path %s", s.getAddress()))
 	err := s.newSessionAndLink(ctx)
 	return s, err
 }
@@ -87,7 +89,7 @@ func (s *sender) Close() error {
 //
 // This will retry sending the message if the server responds with a busy error.
 func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "sender_send")
+	span, ctx := s.startProducerSpanFromContext(ctx, "send")
 	defer span.Finish()
 
 	s.prepareMessage(msg)
@@ -115,7 +117,7 @@ func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption
 		times = max(times, 1) // give at least one chance at sending
 	}
 	_, err := common.Retry(times, delay, func() (interface{}, error) {
-		sp := opentracing.StartSpan("retry", opentracing.ChildOf(span.Context()))
+		sp, ctx := opentracing.StartSpanFromContext(ctx, "try_send")
 		defer sp.Finish()
 
 		select {
@@ -127,16 +129,14 @@ func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption
 			err := s.sender.Send(innerCtx, msg)
 
 			if err != nil {
-				sp.LogFields(log2.String("event", "warn"), log2.String("message", "recovering..."))
 				recoverErr := s.Recover(ctx)
 				if recoverErr != nil {
-					log.Errorln(recoverErr)
+					log.For(ctx).Error(recoverErr.Error())
 				}
 			}
 
 			if amqpErr, ok := err.(*amqp.Error); ok {
 				if amqpErr.Condition == "com.microsoft:server-busy" {
-					sp.LogFields(log2.String("event", "warn"), log2.String("message", "retrying..."))
 					return nil, common.Retryable(amqpErr.Condition)
 				}
 			}
@@ -170,29 +170,37 @@ func (s *sender) prepareMessage(msg *amqp.Message) {
 
 // newSessionAndLink will replace the existing session and link
 func (s *sender) newSessionAndLink(ctx context.Context) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "newSessionAndLink")
+	defer span.Finish()
+
 	connection, err := s.hub.namespace.newConnection()
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 	s.connection = connection
 
 	err = s.hub.namespace.negotiateClaim(ctx, connection, s.getAddress())
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
 	amqpSession, err := connection.NewSession()
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
 	amqpSender, err := amqpSession.NewSender(amqp.LinkTargetAddress(s.getAddress()))
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
 	s.session, err = newSession(amqpSession)
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 

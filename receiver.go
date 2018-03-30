@@ -28,8 +28,10 @@ import (
 	"time"
 
 	"github.com/Azure/azure-amqp-common-go/persist"
+	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
-	log "github.com/sirupsen/logrus"
+	"github.com/opentracing/opentracing-go"
+	olog "github.com/opentracing/opentracing-go/log"
 	"pack.ag/amqp"
 )
 
@@ -113,6 +115,9 @@ func ReceiveWithEpoch(epoch int64) ReceiveOption {
 
 // newReceiver creates a new Service Bus message listener given an AMQP client and an entity path
 func (h *Hub) newReceiver(ctx context.Context, partitionID string, opts ...ReceiveOption) (*receiver, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "newReceiver")
+	defer span.Finish()
+
 	receiver := &receiver{
 		hub:           h,
 		consumerGroup: DefaultConsumerGroup,
@@ -126,7 +131,7 @@ func (h *Hub) newReceiver(ctx context.Context, partitionID string, opts ...Recei
 		}
 	}
 
-	receiver.debugLogf("creating a new receiver")
+	log.For(ctx).Debug("creating a new receiver")
 	err := receiver.newSessionAndLink(ctx)
 	return receiver, err
 }
@@ -163,6 +168,8 @@ func (r *receiver) Recover(ctx context.Context) error {
 func (r *receiver) Listen(handler Handler) *ListenerHandle {
 	ctx, done := context.WithCancel(context.Background())
 	r.done = done
+	span, ctx := r.startConsumerSpanFromContext(ctx, "Listen")
+	defer span.Finish()
 
 	messages := make(chan *amqp.Message)
 	go r.listenForMessages(ctx, messages)
@@ -175,42 +182,46 @@ func (r *receiver) Listen(handler Handler) *ListenerHandle {
 }
 
 func (r *receiver) handleMessages(ctx context.Context, messages chan *amqp.Message, handler Handler) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "handleMessages")
+	defer span.Finish()
 	for {
 		select {
 		case <-ctx.Done():
-			r.debugLogf("done handling messages")
+			log.For(ctx).Debug("done handling messages")
 			return
 		case msg := <-messages:
-			id := messageID(msg)
-			r.debugLogf("message id: %v is being passed to handler", id)
-			event := eventFromMsg(msg)
-			err := handler(ctx, event)
-			if err != nil {
-				msg.Reject()
-				r.debugLogf("message rejected: id: %v", id)
-				continue
-			}
-			msg.Accept()
-			r.debugLogf("message accepted: id: %v", id)
-			r.storeLastReceivedOffset(event.GetCheckpoint())
+			r.handleMessage(ctx, msg, handler)
 		}
 	}
 }
 
+func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler Handler) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "handleMessage")
+	defer span.Finish()
+
+	id := messageID(msg)
+	log.For(ctx).Debug(fmt.Sprintf("message id: %v is being passed to handler", id))
+	event := eventFromMsg(msg)
+	err := handler(ctx, event)
+	if err != nil {
+		msg.Reject()
+		log.For(ctx).Error(fmt.Sprintf("message rejected: id: %v", id))
+		return
+	}
+	msg.Accept()
+	log.For(ctx).Debug(fmt.Sprintf("message accepted: id: %v", id))
+	r.storeLastReceivedOffset(event.GetCheckpoint())
+}
+
 func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Message) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "listenForMessages")
+	defer span.Finish()
+
 	for {
-		msg, err := r.receiver.Receive(ctx)
+		msg, err := r.listenForMessage(ctx)
 		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			r.done()
-			r.lastError = err
 			return
 		}
-
-		id := messageID(msg)
-		r.debugLogf("Message received: %s", id)
 		select {
 		case msgChan <- msg:
 		case <-ctx.Done():
@@ -219,8 +230,33 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 	}
 }
 
+func (r *receiver) listenForMessage(ctx context.Context) (*amqp.Message, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "listenForMessage")
+	defer span.Finish()
+
+	msg, err := r.receiver.Receive(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			log.For(ctx).Error(ctx.Err().Error())
+			return nil, ctx.Err()
+		}
+		r.done()
+		r.lastError = err
+		log.For(ctx).Error(err.Error())
+		return nil, err
+	}
+
+	id := messageID(msg)
+	span.LogFields(olog.String("eventhub.message-id", id.(string)))
+	log.For(ctx).Debug(fmt.Sprintf("Message received: %s", id))
+	return msg, nil
+}
+
 // newSessionAndLink will replace the session and link on the receiver
 func (r *receiver) newSessionAndLink(ctx context.Context) error {
+	span, ctx := r.startConsumerSpanFromContext(ctx, "newSessionAndLink")
+	defer span.Finish()
+
 	connection, err := r.hub.namespace.newConnection()
 	if err != nil {
 		return err
@@ -230,21 +266,25 @@ func (r *receiver) newSessionAndLink(ctx context.Context) error {
 	address := r.getAddress()
 	err = r.hub.namespace.negotiateClaim(ctx, connection, address)
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
 	amqpSession, err := connection.NewSession()
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
 	offsetExpression, err := r.getOffsetExpression()
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
 	r.session, err = newSession(amqpSession)
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
@@ -263,6 +303,7 @@ func (r *receiver) newSessionAndLink(ctx context.Context) error {
 
 	amqpReceiver, err := amqpSession.NewReceiver(opts...)
 	if err != nil {
+		log.For(ctx).Error(err.Error())
 		return err
 	}
 
@@ -317,17 +358,6 @@ func messageID(msg *amqp.Message) interface{} {
 		id = msg.Properties.MessageID
 	}
 	return id
-}
-
-func (r *receiver) debugLogf(format string, args ...interface{}) {
-	var msg string
-	if len(args) > 0 {
-		msg = fmt.Sprintf(format, args)
-	} else {
-		msg = format
-	}
-
-	log.Debugf(msg+" for entity identifier %q", r.getIdentifier())
 }
 
 // Close will close the listener

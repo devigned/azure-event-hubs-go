@@ -29,6 +29,7 @@ import (
 	"github.com/Azure/azure-amqp-common-go/auth"
 	"github.com/Azure/azure-amqp-common-go/cbs"
 	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 	"pack.ag/amqp"
 )
@@ -68,6 +69,9 @@ func (ns *namespace) newConnection() (*amqp.Client, error) {
 }
 
 func (ns *namespace) negotiateClaim(ctx context.Context, conn *amqp.Client, entityPath string) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "negotiateClaim")
+	defer span.Finish()
+
 	audience := ns.getEntityAudience(entityPath)
 	return cbs.NegotiateClaim(ctx, audience, conn, ns.tokenProvider)
 }
