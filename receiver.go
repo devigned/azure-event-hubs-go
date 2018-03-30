@@ -31,7 +31,6 @@ import (
 	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/opentracing/opentracing-go"
-	olog "github.com/opentracing/opentracing-go/log"
 	"pack.ag/amqp"
 )
 
@@ -182,12 +181,12 @@ func (r *receiver) Listen(handler Handler) *ListenerHandle {
 }
 
 func (r *receiver) handleMessages(ctx context.Context, messages chan *amqp.Message, handler Handler) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "handleMessages")
+	span := opentracing.StartSpan("handleMessages", opentracing.FollowsFrom(opentracing.SpanFromContext(ctx).Context()))
 	defer span.Finish()
+	ctx = opentracing.ContextWithSpan(ctx, span)
 	for {
 		select {
 		case <-ctx.Done():
-			log.For(ctx).Debug("done handling messages")
 			return
 		case msg := <-messages:
 			r.handleMessage(ctx, msg, handler)
@@ -196,11 +195,11 @@ func (r *receiver) handleMessages(ctx context.Context, messages chan *amqp.Messa
 }
 
 func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler Handler) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "handleMessage")
+	span, ctx := r.startConsumerSpanFromContext(ctx, "handleMessage")
 	defer span.Finish()
 
 	id := messageID(msg)
-	log.For(ctx).Debug(fmt.Sprintf("message id: %v is being passed to handler", id))
+	span.SetTag("eventhub.message-id", id)
 	event := eventFromMsg(msg)
 	err := handler(ctx, event)
 	if err != nil {
@@ -209,13 +208,13 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 		return
 	}
 	msg.Accept()
-	log.For(ctx).Debug(fmt.Sprintf("message accepted: id: %v", id))
 	r.storeLastReceivedOffset(event.GetCheckpoint())
 }
 
 func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Message) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "listenForMessages")
+	span := opentracing.StartSpan("listenForMessages", opentracing.FollowsFrom(opentracing.SpanFromContext(ctx).Context()))
 	defer span.Finish()
+	ctx = opentracing.ContextWithSpan(ctx, span)
 
 	for {
 		msg, err := r.listenForMessage(ctx)
@@ -231,7 +230,7 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 }
 
 func (r *receiver) listenForMessage(ctx context.Context) (*amqp.Message, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "listenForMessage")
+	span, ctx := r.startConsumerSpanFromContext(ctx, "listenForMessage")
 	defer span.Finish()
 
 	msg, err := r.receiver.Receive(ctx)
@@ -247,8 +246,7 @@ func (r *receiver) listenForMessage(ctx context.Context) (*amqp.Message, error) 
 	}
 
 	id := messageID(msg)
-	span.LogFields(olog.String("eventhub.message-id", id.(string)))
-	log.For(ctx).Debug(fmt.Sprintf("Message received: %s", id))
+	span.SetTag("eventhub.message-id", id)
 	return msg, nil
 }
 

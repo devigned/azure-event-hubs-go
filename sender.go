@@ -117,7 +117,7 @@ func (s *sender) Send(ctx context.Context, msg *amqp.Message, opts ...SendOption
 		times = max(times, 1) // give at least one chance at sending
 	}
 	_, err := common.Retry(times, delay, func() (interface{}, error) {
-		sp, ctx := opentracing.StartSpanFromContext(ctx, "try_send")
+		sp, ctx := s.startProducerSpanFromContext(ctx, "try_send")
 		defer sp.Finish()
 
 		select {
@@ -170,7 +170,7 @@ func (s *sender) prepareMessage(msg *amqp.Message) {
 
 // newSessionAndLink will replace the existing session and link
 func (s *sender) newSessionAndLink(ctx context.Context) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "newSessionAndLink")
+	span, ctx := s.startProducerSpanFromContext(ctx, "newSessionAndLink")
 	defer span.Finish()
 
 	connection, err := s.hub.namespace.newConnection()
