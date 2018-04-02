@@ -206,6 +206,8 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 		serverSpan := opentracing.StartSpan("handleMessage", ext.RPCServerOption(wireContext))
 		defer serverSpan.Finish()
 		ctx = opentracing.ContextWithSpan(ctx, serverSpan)
+	} else {
+		log.For(ctx).Error(err.Error())
 	}
 	err = handler(ctx, event)
 	if err != nil {
