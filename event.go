@@ -178,6 +178,10 @@ func newEvent(data []byte, msg *amqp.Message) *Event {
 
 	if msg != nil {
 		for key, value := range msg.ApplicationProperties {
+			if value == nil {
+				event.Properties[key] = ""
+				continue
+			}
 			event.Properties[key] = value.(string)
 		}
 	}
