@@ -51,8 +51,8 @@
     "autorest/to",
     "autorest/validation"
   ]
-  revision = "ed4b7f5bf1ec0c9ede1fda2681d96771282f2862"
-  version = "v10.4.0"
+  revision = "cd2702d0255126f3d64a7cef703e1341f22bc0ac"
+  version = "v10.5.0"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -124,13 +124,13 @@
     "pkcs12/internal/rc2",
     "ssh/terminal"
   ]
-  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
+  revision = "12892e8c234f4fe6f6803f052061de9057903bb2"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
-  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
+  revision = "b68f30494add4df6bd8ef5e82803f308e7f7c59c"
 
 [[projects]]
   branch = "master"

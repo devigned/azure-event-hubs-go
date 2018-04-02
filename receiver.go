@@ -31,6 +31,7 @@ import (
 	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"pack.ag/amqp"
 )
 
@@ -181,9 +182,8 @@ func (r *receiver) Listen(handler Handler) *ListenerHandle {
 }
 
 func (r *receiver) handleMessages(ctx context.Context, messages chan *amqp.Message, handler Handler) {
-	span := opentracing.StartSpan("handleMessages", opentracing.FollowsFrom(opentracing.SpanFromContext(ctx).Context()))
+	span, ctx := r.startConsumerSpanFromContextFollowing(ctx, "handleMessages")
 	defer span.Finish()
-	ctx = opentracing.ContextWithSpan(ctx, span)
 	for {
 		select {
 		case <-ctx.Done():
@@ -201,7 +201,13 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 	id := messageID(msg)
 	span.SetTag("eventhub.message-id", id)
 	event := eventFromMsg(msg)
-	err := handler(ctx, event)
+	wireContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, event)
+	if err != nil {
+		serverSpan := opentracing.StartSpan("handleMessage", ext.RPCServerOption(wireContext))
+		defer serverSpan.Finish()
+		ctx = opentracing.ContextWithSpan(ctx, serverSpan)
+	}
+	err = handler(ctx, event)
 	if err != nil {
 		msg.Reject()
 		log.For(ctx).Error(fmt.Sprintf("message rejected: id: %v", id))
@@ -212,9 +218,8 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 }
 
 func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Message) {
-	span := opentracing.StartSpan("listenForMessages", opentracing.FollowsFrom(opentracing.SpanFromContext(ctx).Context()))
+	span, ctx := r.startConsumerSpanFromContextFollowing(ctx, "listenForMessages")
 	defer span.Finish()
-	ctx = opentracing.ContextWithSpan(ctx, span)
 
 	for {
 		msg, err := r.listenForMessage(ctx)
@@ -336,6 +341,10 @@ func (r *receiver) getIdentifier() string {
 		return fmt.Sprintf("%s/ConsumerGroups/%s/Partitions/%s/epoch/%d", r.hubName(), r.consumerGroup, r.partitionID, *r.epoch)
 	}
 	return r.getAddress()
+}
+
+func (r *receiver) getFullIdentifier() string {
+	return r.hub.namespace.getEntityAudience(r.getIdentifier())
 }
 
 func (r *receiver) namespaceName() string {

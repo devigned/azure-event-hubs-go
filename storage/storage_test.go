@@ -122,7 +122,9 @@ func (ts *testSuite) TestLeaserRenewLease() {
 
 	acquired, ok, err := leaser.AcquireLease(ctx, lease.GetPartitionID())
 	assert.Nil(ts.T(), err)
-	assert.True(ts.T(), ok, "should have acquired")
+	if !ok {
+		assert.FailNow(ts.T(), "wasn't able to acquire lease")
+	}
 
 	_, ok, err = leaser.RenewLease(ctx, acquired.GetPartitionID())
 	assert.Nil(ts.T(), err)

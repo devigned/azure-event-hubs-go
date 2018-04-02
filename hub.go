@@ -248,10 +248,7 @@ func (h *Hub) Close() error {
 
 // Receive subscribes for messages sent to the provided entityPath.
 func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, opts ...ReceiveOption) (*ListenerHandle, error) {
-	span, ctx, err := h.startSpanFromContext(ctx, "send")
-	if err != nil {
-		return nil, err
-	}
+	span, ctx := h.startSpanFromContext(ctx, "send")
 	defer span.Finish()
 
 	h.receiverMu.Lock()
@@ -276,10 +273,7 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 
 // Send sends an event to the Event Hub
 func (h *Hub) Send(ctx context.Context, event *Event, opts ...SendOption) error {
-	span, ctx, err := h.startSpanFromContext(ctx, "send")
-	if err != nil {
-		return err
-	}
+	span, ctx := h.startSpanFromContext(ctx, "send")
 	defer span.Finish()
 
 	sender, err := h.getSender(ctx)
@@ -287,7 +281,7 @@ func (h *Hub) Send(ctx context.Context, event *Event, opts ...SendOption) error 
 		return err
 	}
 
-	return sender.Send(ctx, event.toMsg(), opts...)
+	return sender.Send(ctx, event, opts...)
 }
 
 // SendBatch sends an EventBatch to the Event Hub
@@ -296,11 +290,13 @@ func (h *Hub) SendBatch(ctx context.Context, batch *EventBatch, opts ...SendOpti
 	if err != nil {
 		return err
 	}
-	msg, err := batch.toMsg()
+
+	event, err := batch.toEvent()
 	if err != nil {
 		return err
 	}
-	return sender.Send(ctx, msg, opts...)
+
+	return sender.Send(ctx, event, opts...)
 }
 
 // HubWithPartitionedSender configures the Hub instance to send to a specific event Hub partition
@@ -354,10 +350,7 @@ func (h *Hub) getSender(ctx context.Context) (*sender, error) {
 	h.senderMu.Lock()
 	defer h.senderMu.Unlock()
 
-	span, ctx, err := h.startSpanFromContext(ctx, "get_sender")
-	if err != nil {
-		return nil, err
-	}
+	span, ctx := h.startSpanFromContext(ctx, "get_sender")
 	defer span.Finish()
 
 	if h.sender == nil {
