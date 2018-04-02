@@ -137,9 +137,13 @@ func (s *sender) trySend(ctx context.Context, evt eventer) error {
 			innerCtx, cancel := context.WithTimeout(ctx, durationOfSend)
 			defer cancel()
 
-			opentracing.GlobalTracer().Inject(sp.Context(), opentracing.TextMap, evt)
-			err := s.sender.Send(innerCtx, evt.toMsg())
+			err := opentracing.GlobalTracer().Inject(sp.Context(), opentracing.TextMap, evt)
+			if err != nil {
+				log.For(ctx).Error(err.Error())
+				return nil, err
+			}
 
+			err = s.sender.Send(innerCtx, evt.toMsg())
 			if err != nil {
 				recoverErr := s.Recover(ctx)
 				if recoverErr != nil {

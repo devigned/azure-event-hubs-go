@@ -115,8 +115,14 @@ func (e *Event) ForeachKey(handler func(key, val string) error) error {
 func (e *Event) toMsg() *amqp.Message {
 	msg := e.message
 	if msg == nil {
-		msg := amqp.NewMessage(e.Data)
+		msg = amqp.NewMessage(e.Data)
+	}
+
+	if msg.ApplicationProperties == nil {
 		msg.ApplicationProperties = make(map[string]interface{})
+	}
+
+	if msg.Properties == nil {
 		msg.Properties = new(amqp.MessageProperties)
 	}
 
