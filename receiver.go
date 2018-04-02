@@ -202,7 +202,7 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 	span.SetTag("eventhub.message-id", id)
 	event := eventFromMsg(msg)
 	wireContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, event)
-	if err != nil {
+	if err == nil {
 		serverSpan := opentracing.StartSpan("handleMessage", ext.RPCServerOption(wireContext))
 		defer serverSpan.Finish()
 		ctx = opentracing.ContextWithSpan(ctx, serverSpan)
