@@ -29,8 +29,6 @@ import (
 	"github.com/Azure/azure-amqp-common-go/auth"
 	"github.com/Azure/azure-amqp-common-go/cbs"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
 	"pack.ag/amqp"
 )
 
@@ -39,7 +37,6 @@ type (
 		name          string
 		tokenProvider auth.TokenProvider
 		environment   azure.Environment
-		Logger        *log.Logger
 	}
 )
 
@@ -48,9 +45,7 @@ func newNamespace(name string, tokenProvider auth.TokenProvider, env azure.Envir
 		name:          name,
 		tokenProvider: tokenProvider,
 		environment:   env,
-		Logger:        log.New(),
 	}
-	ns.Logger.SetLevel(log.WarnLevel)
 
 	return ns
 }
@@ -69,7 +64,7 @@ func (ns *namespace) newConnection() (*amqp.Client, error) {
 }
 
 func (ns *namespace) negotiateClaim(ctx context.Context, conn *amqp.Client, entityPath string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "negotiateClaim")
+	span, ctx := ns.startSpanFromContext(ctx, "eventhub.namespace.negotiateClaim")
 	defer span.Finish()
 
 	audience := ns.getEntityAudience(entityPath)

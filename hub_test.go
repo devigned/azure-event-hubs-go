@@ -35,7 +35,6 @@ import (
 	"github.com/Azure/azure-amqp-common-go/auth"
 	"github.com/Azure/azure-amqp-common-go/sas"
 	"github.com/Azure/azure-event-hubs-go/internal/test"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -354,7 +353,6 @@ func testHubRuntimeInformation(t *testing.T, client *Hub, partitionIDs []string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Debug(info.PartitionIDs)
 	assert.Equal(t, len(partitionIDs), info.PartitionCount)
 	assert.Equal(t, hubName, info.Path)
 }
@@ -395,7 +393,7 @@ func BenchmarkReceive(b *testing.B) {
 
 	provider, err := aad.NewJWTProvider(aad.JWTProviderWithEnvironmentVars())
 	if err != nil {
-		log.Fatal(err)
+		b.Fatal(err)
 	}
 	hub, err := NewHub(suite.Namespace, *mgmtHub.Name, provider)
 	if err != nil {

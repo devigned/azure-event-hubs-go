@@ -124,7 +124,7 @@
     "pkcs12/internal/rc2",
     "ssh/terminal"
   ]
-  revision = "12892e8c234f4fe6f6803f052061de9057903bb2"
+  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
 
 [[projects]]
   branch = "master"
@@ -148,11 +148,11 @@
     ".",
     "internal/testconn"
   ]
-  revision = "7ff561750e9f8f09d73b1d99a27a6d999cba2bcc"
+  revision = "fba4c617049c3049d8bc7ba9879daca1a1a2044e"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9e962dde36f15d3112299d9fc4a1cc5c6a1597f94844ebfe102d6c71b4dd3676"
+  inputs-digest = "0664cda9b26cd4cf8409da36bcb62c6dc21f940093f71a2ad00e37cd042cc576"
   solver-name = "gps-cdcl"
   solver-version = 1

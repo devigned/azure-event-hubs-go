@@ -31,7 +31,6 @@ import (
 	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
 	"pack.ag/amqp"
 )
 
@@ -115,7 +114,7 @@ func ReceiveWithEpoch(epoch int64) ReceiveOption {
 
 // newReceiver creates a new Service Bus message listener given an AMQP client and an entity path
 func (h *Hub) newReceiver(ctx context.Context, partitionID string, opts ...ReceiveOption) (*receiver, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "newReceiver")
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.newReceiver")
 	defer span.Finish()
 
 	receiver := &receiver{
@@ -160,6 +159,9 @@ func (r *receiver) Close() error {
 
 // Recover will attempt to close the current session and link, then rebuild them
 func (r *receiver) Recover(ctx context.Context) error {
+	span, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.Recover")
+	defer span.Finish()
+
 	_ = r.Close() // we expect the receiver is in an error state
 	return r.newSessionAndLink(ctx)
 }
@@ -168,7 +170,8 @@ func (r *receiver) Recover(ctx context.Context) error {
 func (r *receiver) Listen(handler Handler) *ListenerHandle {
 	ctx, done := context.WithCancel(context.Background())
 	r.done = done
-	span, ctx := r.startConsumerSpanFromContext(ctx, "Listen")
+
+	span, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.Listen")
 	defer span.Finish()
 
 	messages := make(chan *amqp.Message)
@@ -182,7 +185,7 @@ func (r *receiver) Listen(handler Handler) *ListenerHandle {
 }
 
 func (r *receiver) handleMessages(ctx context.Context, messages chan *amqp.Message, handler Handler) {
-	span, ctx := r.startConsumerSpanFromContextFollowing(ctx, "handleMessages")
+	span, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.handleMessages")
 	defer span.Finish()
 	for {
 		select {
@@ -195,20 +198,19 @@ func (r *receiver) handleMessages(ctx context.Context, messages chan *amqp.Messa
 }
 
 func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler Handler) {
-	span, ctx := r.startConsumerSpanFromContext(ctx, "handleMessage")
+	event := eventFromMsg(msg)
+	var span opentracing.Span
+	wireContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, event)
+	if err == nil {
+		span, ctx = r.startConsumerSpanFromContext(ctx, "eventhub.receiver.handleMessage", opentracing.FollowsFrom(wireContext))
+	} else {
+		span, ctx = r.startConsumerSpanFromContext(ctx, "eventhub.receiver.handleMessage")
+	}
 	defer span.Finish()
 
 	id := messageID(msg)
 	span.SetTag("eventhub.message-id", id)
-	event := eventFromMsg(msg)
-	wireContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, event)
-	if err == nil {
-		serverSpan := opentracing.StartSpan("handleMessage", ext.RPCServerOption(wireContext))
-		defer serverSpan.Finish()
-		ctx = opentracing.ContextWithSpan(ctx, serverSpan)
-	} else {
-		log.For(ctx).Error(err.Error())
-	}
+
 	err = handler(ctx, event)
 	if err != nil {
 		msg.Reject()
@@ -220,7 +222,7 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 }
 
 func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Message) {
-	span, ctx := r.startConsumerSpanFromContextFollowing(ctx, "listenForMessages")
+	span, ctx := r.startConsumerSpanFromContextFollowing(ctx, "eventhub.receiver.listenForMessages")
 	defer span.Finish()
 
 	for {
@@ -237,7 +239,7 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 }
 
 func (r *receiver) listenForMessage(ctx context.Context) (*amqp.Message, error) {
-	span, ctx := r.startConsumerSpanFromContext(ctx, "listenForMessage")
+	span, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.listenForMessage")
 	defer span.Finish()
 
 	msg, err := r.receiver.Receive(ctx)
@@ -259,7 +261,7 @@ func (r *receiver) listenForMessage(ctx context.Context) (*amqp.Message, error) 
 
 // newSessionAndLink will replace the session and link on the receiver
 func (r *receiver) newSessionAndLink(ctx context.Context) error {
-	span, ctx := r.startConsumerSpanFromContext(ctx, "newSessionAndLink")
+	span, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.newSessionAndLink")
 	defer span.Finish()
 
 	connection, err := r.hub.namespace.newConnection()

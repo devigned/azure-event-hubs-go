@@ -36,7 +36,6 @@ import (
 	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 )
 
@@ -207,7 +206,7 @@ func NewHubFromEnvironment(opts ...HubOption) (*Hub, error) {
 
 // GetRuntimeInformation fetches runtime information from the Event Hub management node
 func (h *Hub) GetRuntimeInformation(ctx context.Context) (*mgmt.HubRuntimeInformation, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hub_get_runtime_information")
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.GetRuntimeInformation")
 	defer span.Finish()
 	client := mgmt.NewClient(h.namespace.name, h.name, h.namespace.tokenProvider, h.namespace.environment)
 	conn, err := h.namespace.newConnection()
@@ -223,6 +222,8 @@ func (h *Hub) GetRuntimeInformation(ctx context.Context) (*mgmt.HubRuntimeInform
 
 // GetPartitionInformation fetches runtime information about a specific partition from the Event Hub management node
 func (h *Hub) GetPartitionInformation(ctx context.Context, partitionID string) (*mgmt.HubPartitionRuntimeInformation, error) {
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.GetPartitionInformation")
+	defer span.Finish()
 	client := mgmt.NewClient(h.namespace.name, h.name, h.namespace.tokenProvider, h.namespace.environment)
 	conn, err := h.namespace.newConnection()
 	if err != nil {
@@ -248,7 +249,7 @@ func (h *Hub) Close() error {
 
 // Receive subscribes for messages sent to the provided entityPath.
 func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, opts ...ReceiveOption) (*ListenerHandle, error) {
-	span, ctx := h.startSpanFromContext(ctx, "send")
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.Receive")
 	defer span.Finish()
 
 	h.receiverMu.Lock()
@@ -273,7 +274,7 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 
 // Send sends an event to the Event Hub
 func (h *Hub) Send(ctx context.Context, event *Event, opts ...SendOption) error {
-	span, ctx := h.startSpanFromContext(ctx, "send")
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.Send")
 	defer span.Finish()
 
 	sender, err := h.getSender(ctx)
@@ -286,6 +287,9 @@ func (h *Hub) Send(ctx context.Context, event *Event, opts ...SendOption) error 
 
 // SendBatch sends an EventBatch to the Event Hub
 func (h *Hub) SendBatch(ctx context.Context, batch *EventBatch, opts ...SendOption) error {
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.SendBatch")
+	defer span.Finish()
+
 	sender, err := h.getSender(ctx)
 	if err != nil {
 		return err
@@ -350,7 +354,7 @@ func (h *Hub) getSender(ctx context.Context) (*sender, error) {
 	h.senderMu.Lock()
 	defer h.senderMu.Unlock()
 
-	span, ctx := h.startSpanFromContext(ctx, "get_sender")
+	span, ctx := h.startSpanFromContext(ctx, "eventhub.Hub.getSender")
 	defer span.Finish()
 
 	if h.sender == nil {
