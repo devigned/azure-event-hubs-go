@@ -130,6 +130,8 @@ func (e *Event) toMsg() *amqp.Message {
 		msg.ApplicationProperties[key] = value
 	}
 
+	msg.Properties.MessageID = e.ID
+
 	if e.PartitionKey != nil {
 		msg.Annotations[partitionKeyAnnotationName] = e.PartitionKey
 	}
