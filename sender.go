@@ -146,7 +146,9 @@ func (s *sender) trySend(ctx context.Context, evt eventer) error {
 				return nil, err
 			}
 
-			err = s.sender.Send(innerCtx, evt.toMsg())
+			msg := evt.toMsg()
+			sp.SetTag("eventhub.message-id", msg.Properties.MessageID)
+			err = s.sender.Send(innerCtx, msg)
 			if err != nil {
 				recoverErr := s.Recover(ctx)
 				if recoverErr != nil {
