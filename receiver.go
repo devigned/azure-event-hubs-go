@@ -202,7 +202,7 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 	var span opentracing.Span
 	wireContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, event)
 	if err == nil {
-		span, ctx = r.startConsumerSpanFromContext(ctx, "eventhub.receiver.handleMessage", opentracing.FollowsFrom(wireContext))
+		span, ctx = r.startConsumerSpanFromWire(ctx, "eventhub.receiver.handleMessage", wireContext)
 	} else {
 		span, ctx = r.startConsumerSpanFromContext(ctx, "eventhub.receiver.handleMessage")
 	}

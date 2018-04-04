@@ -39,6 +39,17 @@ func (r *receiver) startConsumerSpanFromContext(ctx context.Context, operationNa
 	return span, ctx
 }
 
+func (r *receiver) startConsumerSpanFromWire(ctx context.Context, operationName string, reference opentracing.SpanContext, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
+	opts = append(opts, opentracing.FollowsFrom(reference))
+	span := opentracing.StartSpan(operationName, opts...)
+	ctx = opentracing.ContextWithSpan(ctx, span)
+	tracing.ApplyComponentInfo(span)
+	tag.SpanKindRPCClient.Set(span)
+	tag.SpanKindConsumer.Set(span)
+	tag.MessageBusDestination.Set(span, r.getFullIdentifier())
+	return span, ctx
+}
+
 func (r *receiver) startConsumerSpanFromContextFollowing(ctx context.Context, operationName string, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
 	opts = append(opts, opentracing.FollowsFrom(opentracing.SpanFromContext(ctx).Context()))
 	span := opentracing.StartSpan(operationName, opts...)
