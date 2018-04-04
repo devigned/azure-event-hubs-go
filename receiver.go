@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Azure/azure-amqp-common-go"
 	"github.com/Azure/azure-amqp-common-go/persist"
 	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
@@ -227,9 +228,25 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 
 	for {
 		msg, err := r.listenForMessage(ctx)
-		if err != nil {
-			r.Close()
-			return
+		if err != nil && ctx.Err() == nil {
+			_, retryErr := common.Retry(5, 10*time.Second, func() (interface{}, error) {
+				sp, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.listenForMessages.tryRecover")
+				defer sp.Finish()
+
+				err := r.Recover(ctx)
+				if err != nil {
+					log.For(ctx).Error(err.Error())
+					return nil, common.Retryable(err.Error())
+				}
+				return nil, nil
+			})
+
+			if retryErr != nil {
+				r.lastError = retryErr
+				r.Close()
+				return
+			}
+			continue
 		}
 		select {
 		case msgChan <- msg:
