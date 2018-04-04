@@ -228,6 +228,7 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 	for {
 		msg, err := r.listenForMessage(ctx)
 		if err != nil {
+			r.Close()
 			return
 		}
 		select {
