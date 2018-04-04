@@ -11,7 +11,6 @@ import (
 func (h *Hub) startSpanFromContext(ctx context.Context, operationName string, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName, opts...)
 	tracing.ApplyComponentInfo(span)
-	tag.SpanKindRPCClient.Set(span)
 	return span, ctx
 }
 
@@ -24,7 +23,6 @@ func (ns *namespace) startSpanFromContext(ctx context.Context, operationName str
 func (s *sender) startProducerSpanFromContext(ctx context.Context, operationName string, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName, opts...)
 	tracing.ApplyComponentInfo(span)
-	tag.SpanKindRPCClient.Set(span)
 	tag.SpanKindProducer.Set(span)
 	tag.MessageBusDestination.Set(span, s.getFullIdentifier())
 	return span, ctx
@@ -33,7 +31,6 @@ func (s *sender) startProducerSpanFromContext(ctx context.Context, operationName
 func (r *receiver) startConsumerSpanFromContext(ctx context.Context, operationName string, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName, opts...)
 	tracing.ApplyComponentInfo(span)
-	tag.SpanKindRPCClient.Set(span)
 	tag.SpanKindConsumer.Set(span)
 	tag.MessageBusDestination.Set(span, r.getFullIdentifier())
 	return span, ctx
@@ -44,7 +41,6 @@ func (r *receiver) startConsumerSpanFromWire(ctx context.Context, operationName 
 	span := opentracing.StartSpan(operationName, opts...)
 	ctx = opentracing.ContextWithSpan(ctx, span)
 	tracing.ApplyComponentInfo(span)
-	tag.SpanKindRPCClient.Set(span)
 	tag.SpanKindConsumer.Set(span)
 	tag.MessageBusDestination.Set(span, r.getFullIdentifier())
 	return span, ctx
@@ -55,7 +51,6 @@ func (r *receiver) startConsumerSpanFromContextFollowing(ctx context.Context, op
 	span := opentracing.StartSpan(operationName, opts...)
 	ctx = opentracing.ContextWithSpan(ctx, span)
 	tracing.ApplyComponentInfo(span)
-	tag.SpanKindRPCClient.Set(span)
 	tag.SpanKindConsumer.Set(span)
 	tag.MessageBusDestination.Set(span, r.getFullIdentifier())
 	return span, ctx
