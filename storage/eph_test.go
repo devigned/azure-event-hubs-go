@@ -41,7 +41,7 @@ import (
 )
 
 func (ts *testSuite) TestSingle() {
-	randomName := strings.ToLower(test.RandomName("gostoreph", 4))
+	randomName := strings.ToLower(ts.RandomName("gostoreph", 4))
 	hub, delHub := ts.ensureRandomHubByName(randomName)
 	delContainer := ts.newTestContainerByName(randomName)
 	defer delContainer()
@@ -73,7 +73,7 @@ func (ts *testSuite) TestSingle() {
 }
 
 func (ts *testSuite) TestMultiple() {
-	randomName := strings.ToLower(test.RandomName("gostoreph", 4))
+	randomName := strings.ToLower(ts.RandomName("gostoreph", 4))
 	hub, delHub := ts.ensureRandomHubByName(randomName)
 	delContainer := ts.newTestContainerByName(randomName)
 	defer delContainer()
@@ -190,7 +190,7 @@ func (ts *testSuite) newTestContainerByName(containerName string) func() {
 }
 
 func (ts *testSuite) newTestContainer(prefix string, length int) (string, func()) {
-	name := strings.ToLower(test.RandomName(prefix, length))
+	name := strings.ToLower(ts.RandomName(prefix, length))
 	return name, ts.newTestContainerByName(name)
 }
 
@@ -200,7 +200,7 @@ func (ts *testSuite) sendMessages(hubName string, length int) ([]string, error) 
 
 	messages := make([]string, length)
 	for i := 0; i < length; i++ {
-		messages[i] = test.RandomName("message", 5)
+		messages[i] = ts.RandomName("message", 5)
 	}
 
 	events := make([]*eventhub.Event, length)

@@ -177,8 +177,10 @@ func newEvent(data []byte, msg *amqp.Message) *Event {
 		Properties: make(map[string]string),
 	}
 
-	if id, ok := msg.Properties.MessageID.(string); ok {
-		event.ID = id
+	if msg.Properties != nil {
+		if id, ok := msg.Properties.MessageID.(string); ok {
+			event.ID = id
+		}
 	}
 
 	if msg != nil {

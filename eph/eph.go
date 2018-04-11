@@ -33,11 +33,10 @@ import (
 	"time"
 
 	"github.com/Azure/azure-amqp-common-go/auth"
+	"github.com/Azure/azure-amqp-common-go/log"
 	"github.com/Azure/azure-amqp-common-go/persist"
 	"github.com/Azure/azure-amqp-common-go/uuid"
 	"github.com/Azure/azure-event-hubs-go"
-	"github.com/Azure/azure-event-hubs-go/internal/tracing"
-	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/opentracing/opentracing-go"
 	tag "github.com/opentracing/opentracing-go/ext"
 )
@@ -261,7 +260,7 @@ func (h *EventProcessorHost) compositeHandlers() eventhub.Handler {
 			wg.Add(1)
 			go func(boundHandle eventhub.Handler) {
 				if err := boundHandle(ctx, event); err != nil {
-					log.For(ctx).Error(err.Error())
+					log.For(ctx).Error(err)
 				}
 				wg.Done()
 			}(handle)
@@ -285,7 +284,7 @@ func (c checkpointPersister) Read(namespace, name, consumerGroup, partitionID st
 
 func startConsumerSpanFromContext(ctx context.Context, operationName string, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName, opts...)
-	tracing.ApplyComponentInfo(span)
+	eventhub.ApplyComponentInfo(span)
 	tag.SpanKindRPCClient.Set(span)
 	return span, ctx
 }

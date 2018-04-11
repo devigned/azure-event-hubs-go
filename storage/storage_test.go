@@ -198,7 +198,7 @@ func (ts *testSuite) leaserWithEPH() (*LeaserCheckpointer, func()) {
 }
 
 func (ts *testSuite) newLeaser() (*LeaserCheckpointer, func()) {
-	containerName := strings.ToLower(test.RandomName("stortest", 4))
+	containerName := strings.ToLower(ts.RandomName("stortest", 4))
 	cred, err := NewAADSASCredential(ts.SubscriptionID, test.ResourceGroupName, ts.AccountName, containerName, AADSASCredentialWithEnvironmentVars())
 	if err != nil {
 		ts.T().Fatal(err)
@@ -235,5 +235,5 @@ func (ts *testSuite) ensureRandomHubByName(hubName string) (*mgmt.Model, func())
 }
 
 func (ts *testSuite) ensureRandomHub(prefix string, length int) (*mgmt.Model, func()) {
-	return ts.ensureRandomHubByName(test.RandomName(prefix, length))
+	return ts.ensureRandomHubByName(ts.RandomName(prefix, length))
 }

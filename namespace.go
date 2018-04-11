@@ -56,7 +56,7 @@ func (ns *namespace) newConnection() (*amqp.Client, error) {
 		amqp.ConnSASLAnonymous(),
 		amqp.ConnMaxSessions(65535),
 		amqp.ConnProperty("product", "MSGolangClient"),
-		amqp.ConnProperty("version", "0.0.1"),
+		amqp.ConnProperty("version", Version),
 		amqp.ConnProperty("platform", runtime.GOOS),
 		amqp.ConnProperty("framework", runtime.Version()),
 		amqp.ConnProperty("user-agent", rootUserAgent),

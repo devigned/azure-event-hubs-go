@@ -28,8 +28,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-amqp-common-go"
+	"github.com/Azure/azure-amqp-common-go/log"
 	"github.com/Azure/azure-amqp-common-go/persist"
-	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/opentracing/opentracing-go"
 	"pack.ag/amqp"
@@ -215,7 +215,7 @@ func (r *receiver) handleMessage(ctx context.Context, msg *amqp.Message, handler
 	err = handler(ctx, event)
 	if err != nil {
 		msg.Reject()
-		log.For(ctx).Error(fmt.Sprintf("message rejected: id: %v", id))
+		log.For(ctx).Error(fmt.Errorf("message rejected: id: %v", id))
 		return
 	}
 	msg.Accept()
@@ -235,7 +235,7 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 
 				err := r.Recover(ctx)
 				if err != nil {
-					log.For(ctx).Error(err.Error())
+					log.For(ctx).Error(err)
 					return nil, common.Retryable(err.Error())
 				}
 				return nil, nil
@@ -263,12 +263,12 @@ func (r *receiver) listenForMessage(ctx context.Context) (*amqp.Message, error) 
 	msg, err := r.receiver.Receive(ctx)
 	if err != nil {
 		if ctx.Err() != nil {
-			log.For(ctx).Error(ctx.Err().Error())
+			log.For(ctx).Error(ctx.Err())
 			return nil, ctx.Err()
 		}
 		r.done()
 		r.lastError = err
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return nil, err
 	}
 
@@ -291,25 +291,25 @@ func (r *receiver) newSessionAndLink(ctx context.Context) error {
 	address := r.getAddress()
 	err = r.hub.namespace.negotiateClaim(ctx, connection, address)
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
 	amqpSession, err := connection.NewSession()
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
 	offsetExpression, err := r.getOffsetExpression()
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
 	r.session, err = newSession(amqpSession)
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
@@ -328,7 +328,7 @@ func (r *receiver) newSessionAndLink(ctx context.Context) error {
 
 	amqpReceiver, err := amqpSession.NewReceiver(opts...)
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 

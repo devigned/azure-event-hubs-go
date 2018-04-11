@@ -28,7 +28,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/Azure/azure-event-hubs-go/log"
+	"github.com/Azure/azure-amqp-common-go/log"
 )
 
 var (
@@ -94,7 +94,7 @@ func (s *scheduler) scan(ctx context.Context) {
 	allLeases, err := s.processor.leaser.GetLeases(leaseCtx)
 	cancel()
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (s *scheduler) scan(ctx context.Context) {
 	acquired, notAcquired, err := s.acquireExpiredLeases(ctx, allLeases)
 	s.dlog(ctx, fmt.Sprintf("acquired: %v, not acquired: %v", acquired, notAcquired))
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return
 	}
 
@@ -135,7 +135,7 @@ func (s *scheduler) scan(ctx context.Context) {
 		cancel()
 		switch {
 		case err != nil:
-			log.For(ctx).Error(err.Error())
+			log.For(ctx).Error(err)
 			break
 		case !ok:
 			s.dlog(ctx, fmt.Sprintf("failed to steal: %v", candidate))
@@ -170,7 +170,7 @@ func (s *scheduler) startReceiver(ctx context.Context, lease LeaseMarker) error 
 	if receiver, ok := s.receivers[lease.GetPartitionID()]; ok {
 		// receiver thinks it's already running... this is probably a bug if it happens
 		if err := receiver.Close(); err != nil {
-			log.For(ctx).Error(err.Error())
+			log.For(ctx).Error(err)
 		}
 		delete(s.receivers, lease.GetPartitionID())
 	}

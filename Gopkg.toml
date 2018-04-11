@@ -4,15 +4,16 @@
 
 [[constraint]]
     name = "pack.ag/amqp"
-    branch = "master"
+    version = "0.4.1"
 
 [[constraint]]
     name = "github.com/Azure/azure-sdk-for-go"
-    version = "14"
+    version = "15"
 
 [[constraint]]
     name = "github.com/Azure/azure-amqp-common-go"
-    version = "0.2.4"
+    branch = "opentracing"
+    source = "github.com/devigned/azure-amqp-common-go"
 
 [[constraint]]
   name = "github.com/Azure/azure-storage-blob-go"

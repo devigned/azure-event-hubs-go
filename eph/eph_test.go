@@ -159,7 +159,7 @@ func (s *testSuite) sendMessages(hubName string, length int) ([]string, error) {
 
 	messages := make([]string, length)
 	for i := 0; i < length; i++ {
-		messages[i] = test.RandomName("message", 5)
+		messages[i] = s.RandomName("message", 5)
 	}
 
 	events := make([]*eventhub.Event, length)
@@ -175,7 +175,7 @@ func (s *testSuite) sendMessages(hubName string, length int) ([]string, error) {
 }
 
 func (s *testSuite) ensureRandomHub(prefix string, length int) (*mgmt.Model, func()) {
-	hubName := test.RandomName(prefix, length)
+	hubName := s.RandomName(prefix, length)
 	hub, err := s.EnsureEventHub(context.Background(), hubName)
 	if err != nil {
 		s.T().Fatal(err)

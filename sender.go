@@ -28,8 +28,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-amqp-common-go"
+	"github.com/Azure/azure-amqp-common-go/log"
 	"github.com/Azure/azure-amqp-common-go/uuid"
-	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/opentracing/opentracing-go"
 	"pack.ag/amqp"
 )
@@ -142,7 +142,7 @@ func (s *sender) trySend(ctx context.Context, evt eventer) error {
 
 			err := opentracing.GlobalTracer().Inject(sp.Context(), opentracing.TextMap, evt)
 			if err != nil {
-				log.For(ctx).Error(err.Error())
+				log.For(ctx).Error(err)
 				return nil, err
 			}
 
@@ -152,7 +152,7 @@ func (s *sender) trySend(ctx context.Context, evt eventer) error {
 			if err != nil {
 				recoverErr := s.Recover(ctx)
 				if recoverErr != nil {
-					log.For(ctx).Error(recoverErr.Error())
+					log.For(ctx).Error(recoverErr)
 				}
 			}
 
@@ -190,32 +190,32 @@ func (s *sender) newSessionAndLink(ctx context.Context) error {
 
 	connection, err := s.hub.namespace.newConnection()
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 	s.connection = connection
 
 	err = s.hub.namespace.negotiateClaim(ctx, connection, s.getAddress())
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
 	amqpSession, err := connection.NewSession()
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
 	amqpSender, err := amqpSession.NewSender(amqp.LinkTargetAddress(s.getAddress()))
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 
 	s.session, err = newSession(amqpSession)
 	if err != nil {
-		log.For(ctx).Error(err.Error())
+		log.For(ctx).Error(err)
 		return err
 	}
 

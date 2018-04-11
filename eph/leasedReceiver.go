@@ -28,8 +28,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/Azure/azure-amqp-common-go/log"
 	"github.com/Azure/azure-event-hubs-go"
-	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/pkg/errors"
 )
 

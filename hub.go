@@ -31,9 +31,9 @@ import (
 
 	"github.com/Azure/azure-amqp-common-go/aad"
 	"github.com/Azure/azure-amqp-common-go/auth"
+	"github.com/Azure/azure-amqp-common-go/log"
 	"github.com/Azure/azure-amqp-common-go/persist"
 	"github.com/Azure/azure-amqp-common-go/sas"
-	"github.com/Azure/azure-event-hubs-go/log"
 	"github.com/Azure/azure-event-hubs-go/mgmt"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/pkg/errors"
@@ -42,6 +42,9 @@ import (
 const (
 	maxUserAgentLen = 128
 	rootUserAgent   = "/golang-event-hubs"
+
+	// Version is the semantic version number
+	Version = "0.1.2"
 )
 
 type (
@@ -262,7 +265,7 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 
 	if r, ok := h.receivers[receiver.getIdentifier()]; ok {
 		if err := r.Close(); err != nil {
-			log.For(ctx).Error(err.Error())
+			log.For(ctx).Error(err)
 		}
 	}
 
@@ -360,7 +363,7 @@ func (h *Hub) getSender(ctx context.Context) (*sender, error) {
 	if h.sender == nil {
 		s, err := h.newSender(ctx)
 		if err != nil {
-			log.For(ctx).Error(err.Error())
+			log.For(ctx).Error(err)
 			return nil, err
 		}
 		h.sender = s
