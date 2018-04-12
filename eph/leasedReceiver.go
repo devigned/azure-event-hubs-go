@@ -68,13 +68,13 @@ func (lr *leasedReceiver) Run(ctx context.Context) error {
 	return nil
 }
 
-func (lr *leasedReceiver) Close() error {
+func (lr *leasedReceiver) Close(ctx context.Context) error {
 	if lr.done != nil {
 		lr.done()
 	}
 
 	if lr.handle != nil {
-		return lr.handle.Close()
+		return lr.handle.Close(ctx)
 	}
 
 	return nil

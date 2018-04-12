@@ -147,7 +147,7 @@ func (s *scheduler) scan(ctx context.Context) {
 	}
 }
 
-func (s *scheduler) Stop() error {
+func (s *scheduler) Stop(ctx context.Context) error {
 	if s.done != nil {
 		s.done()
 	}
@@ -155,7 +155,7 @@ func (s *scheduler) Stop() error {
 	// close all receivers even if errors occur reporting only the last error, but logging all
 	var lastErr error
 	for _, lr := range s.receivers {
-		if err := lr.Close(); err != nil {
+		if err := lr.Close(ctx); err != nil {
 			lastErr = err
 		}
 	}
@@ -169,7 +169,7 @@ func (s *scheduler) startReceiver(ctx context.Context, lease LeaseMarker) error 
 
 	if receiver, ok := s.receivers[lease.GetPartitionID()]; ok {
 		// receiver thinks it's already running... this is probably a bug if it happens
-		if err := receiver.Close(); err != nil {
+		if err := receiver.Close(ctx); err != nil {
 			log.For(ctx).Error(err)
 		}
 		delete(s.receivers, lease.GetPartitionID())
@@ -188,7 +188,7 @@ func (s *scheduler) stopReceiver(ctx context.Context, lease LeaseMarker) error {
 
 	s.dlog(ctx, fmt.Sprintf("stopping receiver for partitionID %q", lease.GetPartitionID()))
 	if receiver, ok := s.receivers[lease.GetPartitionID()]; ok {
-		err := receiver.Close()
+		err := receiver.Close(ctx)
 		delete(s.receivers, lease.GetPartitionID())
 		if err != nil {
 			return err

@@ -137,19 +137,19 @@ func (h *Hub) newReceiver(ctx context.Context, partitionID string, opts ...Recei
 }
 
 // Close will close the AMQP session and link of the receiver
-func (r *receiver) Close() error {
+func (r *receiver) Close(ctx context.Context) error {
 	if r.done != nil {
 		r.done()
 	}
 
-	err := r.receiver.Close()
+	err := r.receiver.Close(ctx)
 	if err != nil {
-		_ = r.session.Close()
+		_ = r.session.Close(ctx)
 		_ = r.connection.Close()
 		return err
 	}
 
-	err = r.session.Close()
+	err = r.session.Close(ctx)
 	if err != nil {
 		_ = r.connection.Close()
 		return err
@@ -163,7 +163,7 @@ func (r *receiver) Recover(ctx context.Context) error {
 	span, ctx := r.startConsumerSpanFromContext(ctx, "eventhub.receiver.Recover")
 	defer span.Finish()
 
-	_ = r.Close() // we expect the receiver is in an error state
+	_ = r.Close(ctx) // we expect the receiver is in an error state
 	return r.newSessionAndLink(ctx)
 }
 
@@ -243,7 +243,7 @@ func (r *receiver) listenForMessages(ctx context.Context, msgChan chan *amqp.Mes
 
 			if retryErr != nil {
 				r.lastError = retryErr
-				r.Close()
+				r.Close(ctx)
 				return
 			}
 			continue
@@ -390,8 +390,8 @@ func messageID(msg *amqp.Message) interface{} {
 }
 
 // Close will close the listener
-func (lc *ListenerHandle) Close() error {
-	return lc.r.Close()
+func (lc *ListenerHandle) Close(ctx context.Context) error {
+	return lc.r.Close(ctx)
 }
 
 // Done will close the channel when the listener has stopped

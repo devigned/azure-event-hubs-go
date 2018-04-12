@@ -164,7 +164,7 @@ func (h *EventProcessorHost) Start(ctx context.Context) error {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, os.Kill)
 	<-signalChan
-	return h.Close()
+	return h.Close(ctx)
 }
 
 // StartNonBlocking begins processing of messages for registered handlers
@@ -202,12 +202,12 @@ func (h *EventProcessorHost) PartitionIDsBeingProcessed() []string {
 }
 
 // Close stops the EventHostProcessor from processing messages
-func (h *EventProcessorHost) Close() error {
+func (h *EventProcessorHost) Close(ctx context.Context) error {
 	fmt.Println("shutting down...")
 	if h.scheduler != nil {
-		if err := h.scheduler.Stop(); err != nil {
+		if err := h.scheduler.Stop(ctx); err != nil {
 			if h.client != nil {
-				_ = h.client.Close()
+				_ = h.client.Close(ctx)
 			}
 			return err
 		}
@@ -221,7 +221,7 @@ func (h *EventProcessorHost) Close() error {
 		_ = h.checkpointer.Close()
 	}
 
-	return h.client.Close()
+	return h.client.Close(ctx)
 }
 
 func (h *EventProcessorHost) setup(ctx context.Context) error {

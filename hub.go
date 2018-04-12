@@ -240,10 +240,10 @@ func (h *Hub) GetPartitionInformation(ctx context.Context, partitionID string) (
 }
 
 // Close drains and closes all of the existing senders, receivers and connections
-func (h *Hub) Close() error {
+func (h *Hub) Close(ctx context.Context) error {
 	var lastErr error
 	for _, r := range h.receivers {
-		if err := r.Close(); err != nil {
+		if err := r.Close(ctx); err != nil {
 			lastErr = err
 		}
 	}
@@ -264,7 +264,7 @@ func (h *Hub) Receive(ctx context.Context, partitionID string, handler Handler, 
 	}
 
 	if r, ok := h.receivers[receiver.getIdentifier()]; ok {
-		if err := r.Close(); err != nil {
+		if err := r.Close(ctx); err != nil {
 			log.For(ctx).Error(err)
 		}
 	}
